@@ -52,13 +52,64 @@ Para rodar este projeto na sua máquina, você precisará ter instalado:
 
 Como o sistema possui um Frontend e um Backend separados, é necessário rodar dois terminais simultaneamente.
 
-### Passo 1: Clonar o Repositório
+Passo 1: Clonar o Repositório
 
 Abra o terminal e baixe o projeto para a sua máquina:
 
-```bash
-git clone https://github.com/pedrovianadev/projetocrud.git
-cd projetocrud
+```git clone https://github.com/pedrovianadev/projetocrud.git```
+```cd projetocrud```
 
-### Passo 2: Inicializar o Backend (Servidor)
+### Passo 2: Inicializar o Backend
 
+O backend gerencia os dados e os salva no arquivo .json.
+
+No terminal, entre na pasta do backend:
+
+```cd backend```
+
+Instale as dependências necessárias:
+
+```npm install```
+
+Inicie o servidor:
+
+```node server.js```
+
+Aviso: O servidor estará rodando em http://localhost:3001.
+Mantenha este terminal aberto e rodando.
+
+------------------------------------------------------------
+
+### Passo 3: Inicializar o Frontend
+
+Agora vamos rodar a tela do projeto para interagir com o sistema.
+
+Abra um novo terminal (sem fechar o do backend) e entre na pasta do frontend:
+
+```cd frontend```
+
+Instale as dependências do React:
+
+```npm install```
+
+Inicie a aplicação:
+
+```npm start```
+
+Aviso: O navegador abrirá automaticamente a aplicação em ```http://localhost:3000.```
+
+------------------------------------------------------------
+
+### Reiniciando os Dados (Para Testes)
+
+Os dados cadastrados pelo frontend são salvos automaticamente em:
+
+backend/database/students.json
+
+Caso precise limpar o banco de dados para uma nova apresentação ou teste:
+
+- Abra o arquivo students.json
+- Apague todo o conteúdo
+- Salve apenas com colchetes vazios:
+
+[]
