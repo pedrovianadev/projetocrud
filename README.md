@@ -38,6 +38,7 @@ O repositório está dividido em duas partes principais:
     │   ├── App.css           # Estilização (Cores do SENAC)
     │   └── index.js          # Ponto de entrada do React
     └── package.json          # Dependências do React
+```
 
 ## Pré-requisitos
 
@@ -113,3 +114,4 @@ Caso precise limpar o banco de dados para uma nova apresentação ou teste:
 - Salve apenas com colchetes vazios:
 
 []
+
