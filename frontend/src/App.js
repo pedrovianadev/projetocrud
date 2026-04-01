@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-const API_URL = 'http://localhost:3001/students';
+const API_URL = 'http://localhost:3001/api/students';  // ← ÚNICA ALTERAÇÃO
 
 function App() {
   // State variables (Variáveis de estado)
@@ -20,7 +20,8 @@ function App() {
     try {
       const response = await fetch(API_URL);
       const data = await response.json();
-      setStudents(data);
+      // Ajuste: a API retorna { success: true, data: [...] }
+      setStudents(data.data || []);
     } catch (error) {
       console.error("Error fetching students:", error);
     }
@@ -46,10 +47,15 @@ function App() {
         });
       } else {
         // Create new student (Criar novo aluno)
+        // Gerar um ID único baseado no timestamp
+        const newStudent = {
+          ...form,
+          id: Date.now().toString()
+        };
         await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
+          body: JSON.stringify(newStudent),
         });
       }
       

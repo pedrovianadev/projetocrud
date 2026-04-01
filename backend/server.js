@@ -1,107 +1,179 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
+const mysql = require('mysql2/promise');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.SERVER_PORT || 3001;
 
 // Middleware
-app.use(cors()); // Permite que o React acesse este servidor
-app.use(express.json()); // Permite receber JSON no corpo das requisições
+app.use(cors());
+app.use(express.json());
 
-// Caminho para o arquivo de persistência
-const DATA_FILE = path.join(__dirname, 'database', 'students.json');
+// Configuração do banco de dados MySQL
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'projetocrud',
+    port: process.env.DB_PORT || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
 
-// Garante que a pasta e o arquivo existam
-if (!fs.existsSync(path.dirname(DATA_FILE))) {
-    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-    fs.writeFileSync(DATA_FILE, '[]');
-}
+console.log('📦 Conectando ao banco:', process.env.DB_NAME || 'projetocrud');
 
-// --- Helper Functions (Funções Auxiliares) ---
+// ========== ROTAS CRUD ==========
 
-// Ler dados do arquivo JSON
-const readData = () => {
+// Rota de teste (health check)
+app.get('/api/health', async (req, res) => {
     try {
-        const data = fs.readFileSync(DATA_FILE, 'utf8');
-        return JSON.parse(data);
+        const [result] = await pool.query('SELECT 1 as status');
+        res.json({ 
+            status: 'ok', 
+            database: 'connected',
+            timestamp: new Date().toISOString()
+        });
     } catch (error) {
-        console.error("Error reading file:", error);
-        return [];
+        res.status(500).json({ 
+            status: 'error', 
+            message: error.message 
+        });
     }
-};
+});
 
-// Escrever dados no arquivo JSON
-const writeData = (data) => {
+// CREATE - Criar um novo estudante
+app.post('/api/students', async (req, res) => {
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-        return true;
+        const { id, name, email, course, registration } = req.body;
+        
+        const [result] = await pool.execute(
+            'INSERT INTO students (id, name, email, course, registration) VALUES (?, ?, ?, ?, ?)',
+            [id, name, email, course, registration]
+        );
+        
+        res.status(201).json({ 
+            success: true, 
+            message: 'Estudante criado com sucesso',
+            data: { id, name, email, course, registration }
+        });
     } catch (error) {
-        console.error("Error writing file:", error);
-        return false;
-    }
-};
-
-// --- Routes (Rotas) ---
-
-// GET: Listar todos os alunos
-app.get('/students', (req, res) => {
-    const students = readData();
-    res.json(students);
-});
-
-// POST: Criar um novo aluno
-app.post('/students', (req, res) => {
-    const students = readData();
-    const newStudent = {
-        id: Date.now().toString(), // ID simples baseado em timestamp
-        name: req.body.name,
-        email: req.body.email,
-        course: req.body.course,
-        registration: req.body.registration // Matrícula
-    };
-
-    students.push(newStudent);
-    writeData(students);
-    
-    res.status(201).json(newStudent);
-});
-
-// PUT: Atualizar um aluno
-app.put('/students/:id', (req, res) => {
-    const { id } = req.params;
-    const students = readData();
-    const index = students.findIndex(student => student.id === id);
-
-    if (index !== -1) {
-        // Atualiza apenas os campos enviados
-        students[index] = { ...students[index], ...req.body };
-        writeData(students);
-        res.json(students[index]);
-    } else {
-        res.status(404).json({ message: "Student not found" });
+        console.error('Erro:', error);
+        if (error.code === 'ER_DUP_ENTRY') {
+            res.status(409).json({ 
+                success: false, 
+                message: 'ID ou email já cadastrado' 
+            });
+        } else {
+            res.status(500).json({ 
+                success: false, 
+                message: 'Erro ao criar estudante',
+                error: error.message 
+            });
+        }
     }
 });
 
-// DELETE: Remover um aluno
-app.delete('/students/:id', (req, res) => {
-    const { id } = req.params;
-    let students = readData();
-    const initialLength = students.length;
+// READ - Listar todos os estudantes
+app.get('/api/students', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM students ORDER BY created_at DESC');
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        console.error('Erro:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erro ao listar estudantes' 
+        });
+    }
+});
 
-    // Filtra removendo o ID solicitado
-    students = students.filter(student => student.id !== id);
+// READ - Buscar um estudante por ID
+app.get('/api/students/:id', async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            'SELECT * FROM students WHERE id = ?',
+            [req.params.id]
+        );
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Estudante não encontrado' 
+            });
+        }
+        
+        res.json({ success: true, data: rows[0] });
+    } catch (error) {
+        console.error('Erro:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erro ao buscar estudante' 
+        });
+    }
+});
 
-    if (students.length < initialLength) {
-        writeData(students);
-        res.status(204).send(); // 204 = No Content
-    } else {
-        res.status(404).json({ message: "Student not found" });
+// UPDATE - Atualizar um estudante
+app.put('/api/students/:id', async (req, res) => {
+    try {
+        const { name, email, course, registration } = req.body;
+        const [result] = await pool.execute(
+            'UPDATE students SET name = ?, email = ?, course = ?, registration = ? WHERE id = ?',
+            [name, email, course, registration, req.params.id]
+        );
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Estudante não encontrado' 
+            });
+        }
+        
+        res.json({ 
+            success: true, 
+            message: 'Estudante atualizado com sucesso' 
+        });
+    } catch (error) {
+        console.error('Erro:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erro ao atualizar estudante' 
+        });
+    }
+});
+
+// DELETE - Deletar um estudante
+app.delete('/api/students/:id', async (req, res) => {
+    try {
+        const [result] = await pool.execute(
+            'DELETE FROM students WHERE id = ?',
+            [req.params.id]
+        );
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Estudante não encontrado' 
+            });
+        }
+        
+        res.json({ 
+            success: true, 
+            message: 'Estudante deletado com sucesso' 
+        });
+    } catch (error) {
+        console.error('Erro:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erro ao deletar estudante' 
+        });
     }
 });
 
 // Iniciar servidor
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`📡 API disponível em http://localhost:${PORT}/api/students`);
+    console.log(`💚 Health check: http://localhost:${PORT}/api/health`);
 });

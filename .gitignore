@@ -1,1 +1,21 @@
 node_modules/
+# Arquivos de ambiente (senhas)
+.env
+backend/.env
+frontend/.env
+
+# Dependências
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Dados locais
+backend/database/*.json
+
+# Arquivos de log
+*.log
+npm-debug.log*
+
+# Sistema
+.DS_Store
+Thumbs.db
